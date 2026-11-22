@@ -13,7 +13,7 @@ public interface EnquiryRepository extends JpaRepository<Enquiry, UUID> {
 
     @Query("""
             select enquiry from Enquiry enquiry
-            where enquiry.resident.id = :accountId
+            where (enquiry.resident.id = :accountId and enquiry.hiddenForResident = false)
                or (enquiry.provider.owner.id = :accountId and enquiry.hiddenForProvider = false)
             order by enquiry.createdAt desc
             """)

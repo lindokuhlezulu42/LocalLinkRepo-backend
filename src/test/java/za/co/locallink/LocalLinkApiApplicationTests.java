@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +30,7 @@ import za.co.locallink.provider.ProviderListing;
 import za.co.locallink.provider.ProviderListingRepository;
 import za.co.locallink.provider.ListingStatus;
 import za.co.locallink.account.EmailVerificationTokenRepository;
+import za.co.locallink.account.AdminBootstrap;
 import za.co.locallink.account.AccountRole;
 import za.co.locallink.account.UserAccount;
 import za.co.locallink.account.UserAccountRepository;
@@ -76,10 +78,34 @@ class LocalLinkApiApplicationTests {
 	private UserAccountRepository accounts;
 
 	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
 	private EnquiryRepository enquiryRepository;
 
 	@Test
 	void contextLoads() {
+	}
+
+	@Test
+	@Transactional
+	void adminBootstrapReconcilesExistingAccountWithConfiguredCredentials() {
+		var email = "bootstrap-" + UUID.randomUUID() + "@example.com";
+		var existingAccount = accounts.save(new UserAccount(
+				"Existing User",
+				email,
+				passwordEncoder.encode("an-old-password"),
+				AccountRole.PROVIDER));
+		existingAccount.setEmailVerified(false);
+		accounts.save(existingAccount);
+
+		var configuredPassword = "a-new-configured-password";
+		new AdminBootstrap(accounts, passwordEncoder, email, configuredPassword).run(null);
+
+		var configuredAccount = accounts.findByEmailIgnoreCase(email).orElseThrow();
+		assertEquals(AccountRole.ADMIN, configuredAccount.getRole());
+		assertTrue(passwordEncoder.matches(configuredPassword, configuredAccount.getPassword()));
+		assertTrue(configuredAccount.isEmailVerified());
 	}
 
 	@Test
@@ -111,30 +137,59 @@ class LocalLinkApiApplicationTests {
 	}
 
 	@Test
-	void adminReadAndProviderRequestedDeletionActionsRequireAdministratorRole() throws Exception {
+	void administratorsCannotCreateOrEditListings() throws Exception {
 		var listingId = UUID.randomUUID();
+		var request = """
+				{"name":"Admin Listing","category":"Plumbing","area":"Midrand","description":"Listing details","price":"Quotes on request","experience":"5 years","services":["Pipe repairs"],"phone":"0000000000","email":"admin@example.com"}
+				""";
+
+		mockMvc.perform(post("/api/providers")
+						.with(user("admin").roles("ADMIN"))
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(request))
+				.andExpect(status().isForbidden());
+
+		mockMvc.perform(patch("/api/admin/providers/" + listingId)
+						.with(user("admin").roles("ADMIN"))
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(request))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void providersCanDeleteTheirOwnListingsWithoutAdminApproval() throws Exception {
+		var listingId = UUID.randomUUID();
+		var provider = new UserAccount(
+				"Test Provider", "provider-" + UUID.randomUUID() + "@example.com",
+				"not-a-real-password-hash", AccountRole.PROVIDER);
+
+		mockMvc.perform(delete("/api/providers/" + listingId).with(csrf()))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(delete("/api/providers/" + listingId)
+						.with(user("admin").roles("ADMIN"))
+						.with(csrf()))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(delete("/api/providers/" + listingId)
+						.with(user(provider))
+						.with(csrf()))
+				.andExpect(status().isNoContent());
+		verify(providerService).deleteOwned(provider, listingId);
+	}
+
+	@Test
+	void adminEnquiryActionsRequireAdministratorRole() throws Exception {
 		var enquiryId = UUID.randomUUID();
 		when(enquiryService.setReadByAdmin(enquiryId, true)).thenReturn(new EnquiryResponse(
 				enquiryId, UUID.randomUUID(), "Test provider", null, "Test resident",
 				"0000000000", null, "Test enquiry", "new", Instant.now(), true));
-		mockMvc.perform(delete("/api/admin/providers/" + listingId).with(csrf()))
-				.andExpect(status().isForbidden());
 		mockMvc.perform(patch("/api/admin/enquiries/" + enquiryId + "/read")
 						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"read\":true}"))
 				.andExpect(status().isForbidden());
-		mockMvc.perform(patch("/api/providers/" + listingId + "/deletion-request")
-						.with(user("resident").roles("RESIDENT"))
-						.with(csrf())
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"requested\":true}"))
-				.andExpect(status().isForbidden());
 
-		mockMvc.perform(delete("/api/admin/providers/" + listingId)
-						.with(user("admin").roles("ADMIN"))
-						.with(csrf()))
-				.andExpect(status().isOk());
 		mockMvc.perform(patch("/api/admin/enquiries/" + enquiryId + "/read")
 						.with(user("admin").roles("ADMIN"))
 						.with(csrf())

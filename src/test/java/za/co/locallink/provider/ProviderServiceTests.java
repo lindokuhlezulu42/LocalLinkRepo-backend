@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -158,6 +160,44 @@ class ProviderServiceTests {
         assertTrue(response.changesResubmitted());
         assertEquals("Example Plumbing", response.name());
         assertEquals("Updated pipe repairs", response.pendingDescription());
+    }
+
+    @Test
+    void providerCanDeleteTheirListingAndRelatedEnquiries() {
+        var account = mock(UserAccount.class);
+        var ownerId = UUID.randomUUID();
+        when(account.getId()).thenReturn(ownerId);
+        var listing = new ProviderListing(
+                account, "Example Plumbing", "Plumbing", "Midrand", "Pipe repairs",
+                null, null, List.of("Pipe repairs"), "0000000000", "provider@example.com");
+        listing.onCreate();
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+
+        new ProviderService(listings, enquiries).deleteOwned(account, listing.getId());
+
+        verify(enquiries).deleteAllByProviderId(listing.getId());
+        verify(listings).delete(listing);
+    }
+
+    @Test
+    void providerCannotDeleteAnotherProvidersListing() {
+        var owner = mock(UserAccount.class);
+        when(owner.getId()).thenReturn(UUID.randomUUID());
+        var otherProvider = mock(UserAccount.class);
+        when(otherProvider.getId()).thenReturn(UUID.randomUUID());
+        var listing = new ProviderListing(
+                owner, "Example Plumbing", "Plumbing", "Midrand", "Pipe repairs",
+                null, null, List.of("Pipe repairs"), "0000000000", "provider@example.com");
+        listing.onCreate();
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+
+        var error = assertThrows(
+                ResponseStatusException.class,
+                () -> new ProviderService(listings, enquiries).deleteOwned(otherProvider, listing.getId()));
+
+        assertEquals(404, error.getStatusCode().value());
+        verify(enquiries, never()).deleteAllByProviderId(listing.getId());
+        verify(listings, never()).delete(listing);
     }
 
     @Test

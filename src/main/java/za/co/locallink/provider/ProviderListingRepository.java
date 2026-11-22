@@ -17,6 +17,7 @@ public interface ProviderListingRepository extends JpaRepository<ProviderListing
     List<ProviderListing> findByOwner_IdOrderByCreatedAtDesc(UUID ownerId);
 
     Optional<ProviderListing> findByIdAndStatus(UUID id, ListingStatus status);
+    Optional<ProviderListing> findByIdAndOwner_Id(UUID id, UUID ownerId);
 
     @Query("""
             select distinct listing from ProviderListing listing

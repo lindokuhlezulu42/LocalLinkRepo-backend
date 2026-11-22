@@ -71,9 +71,6 @@ public class ProviderListing {
     private Instant updatedAt;
 
     @Column(nullable = false, columnDefinition = "boolean default false")
-    private boolean deletionRequested;
-
-    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean changesResubmitted;
 
     @Column(length = 500)
@@ -133,7 +130,6 @@ public class ProviderListing {
         this.phone = phone;
         this.email = email;
         this.status = ListingStatus.PENDING;
-        this.deletionRequested = false;
     }
 
     @PrePersist
@@ -162,7 +158,6 @@ public class ProviderListing {
     public ListingStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
-    public boolean isDeletionRequested() { return deletionRequested; }
     public boolean isChangesResubmitted() { return changesResubmitted; }
     public String getChangeRejectionReason() { return changeRejectionReason; }
     public String getPendingName() { return pendingName; }
@@ -182,7 +177,6 @@ public class ProviderListing {
             clearPendingChanges();
         }
     }
-    public void setDeletionRequested(boolean deletionRequested) { this.deletionRequested = deletionRequested; }
     public void setChangesResubmitted(boolean changesResubmitted) { this.changesResubmitted = changesResubmitted; }
 
     public void stageChanges(

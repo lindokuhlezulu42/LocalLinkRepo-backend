@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -12,15 +13,23 @@ import za.co.locallink.account.AccountRole;
 import za.co.locallink.account.UserAccount;
 import za.co.locallink.provider.ListingStatus;
 import za.co.locallink.provider.ProviderListingRepository;
+import za.co.locallink.review.ReviewRepository;
 
 @Service
 public class EnquiryService {
     private final EnquiryRepository enquiries;
     private final ProviderListingRepository providers;
+    private final ReviewRepository reviews;
 
     public EnquiryService(EnquiryRepository enquiries, ProviderListingRepository providers) {
+        this(enquiries, providers, null);
+    }
+
+    @Autowired
+    public EnquiryService(EnquiryRepository enquiries, ProviderListingRepository providers, ReviewRepository reviews) {
         this.enquiries = enquiries;
         this.providers = providers;
+        this.reviews = reviews;
     }
 
     @Transactional
@@ -43,7 +52,12 @@ public class EnquiryService {
     @Transactional(readOnly = true)
     public List<EnquiryResponse> findMine(UserAccount account) {
         return enquiries.findVisibleToAccount(account.getId()).stream()
-                .map(EnquiryResponse::from)
+                .map(enquiry -> EnquiryResponse.from(
+                        enquiry,
+                        enquiry.getResident() != null
+                                && enquiry.getResident().getId().equals(account.getId())
+                                && reviews != null
+                                && reviews.existsByEnquiryId(enquiry.getId())))
                 .toList();
     }
 
@@ -64,14 +78,17 @@ public class EnquiryService {
 
     @Transactional
     public void deleteReadByAdmin(UUID enquiryId) {
-        if (enquiries.deleteReadById(enquiryId) == 1) {
-            return;
-        }
-        if (enquiries.existsById(enquiryId)) {
+        var enquiry = enquiries.findById(enquiryId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Enquiry not found."));
+        if (!enquiry.isReadByAdmin()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Mark the enquiry as read before deleting it.");
         }
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Enquiry not found.");
+        if (reviews != null) reviews.deleteAllByEnquiryId(enquiryId);
+        if (enquiries.deleteReadById(enquiryId) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The enquiry could not be deleted.");
+        }
     }
 
     @Transactional
@@ -80,5 +97,32 @@ public class EnquiryService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enquiry not found."));
         enquiry.setHiddenForProvider(true);
         enquiries.save(enquiry);
+    }
+
+    @Transactional
+    public void hideForResident(UUID enquiryId, UserAccount resident) {
+        var enquiry = enquiries.findById(enquiryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enquiry not found."));
+        if (enquiry.getResident() == null
+                || !enquiry.getResident().getId().equals(resident.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "The enquiry is not attached to this resident.");
+        }
+        enquiry.setHiddenForResident(true);
+        enquiries.save(enquiry);
+    }
+
+    @Transactional
+    public EnquiryResponse changeStatus(UUID enquiryId, String status, UserAccount provider) {
+        var enquiry = enquiries.findByIdAndProvider_Owner_Id(enquiryId, provider.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enquiry not found."));
+        String current = enquiry.getStatus();
+        boolean allowed = ("new".equals(current) && "accepted".equals(status))
+                || ("accepted".equals(current) && "in_progress".equals(status))
+                || ("in_progress".equals(current) && "completed".equals(status));
+        if (!allowed) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Invalid enquiry status transition.");
+        }
+        enquiry.setStatus(status);
+        return EnquiryResponse.from(enquiries.save(enquiry));
     }
 }

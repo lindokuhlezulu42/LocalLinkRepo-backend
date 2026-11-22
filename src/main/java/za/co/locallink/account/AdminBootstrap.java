@@ -33,12 +33,15 @@ public class AdminBootstrap implements ApplicationRunner {
             throw new IllegalStateException(
                     "Configure both LOCALLINK_ADMIN_EMAIL and a LOCALLINK_ADMIN_PASSWORD of at least 12 characters.");
         }
-        if (!accounts.existsByEmailIgnoreCase(email)) {
-            accounts.save(new UserAccount(
-                    "LocalLink Admin",
-                    email.trim(),
-                    passwordEncoder.encode(password),
-                    AccountRole.ADMIN));
-        }
+        var normalizedEmail = email.trim();
+        var passwordHash = passwordEncoder.encode(password);
+        var account = accounts.findByEmailIgnoreCase(normalizedEmail)
+                .orElseGet(() -> new UserAccount(
+                        "LocalLink Admin",
+                        normalizedEmail,
+                        passwordHash,
+                        AccountRole.ADMIN));
+        account.configureAsAdmin(passwordHash);
+        accounts.save(account);
     }
 }

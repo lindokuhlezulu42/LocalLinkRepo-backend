@@ -19,7 +19,6 @@ public record ProviderResponse(
         String email,
         String status,
         Instant createdAt,
-        boolean deletionRequested,
         boolean changesResubmitted,
         String changeRejectionReason,
         String pendingName,
@@ -30,8 +29,14 @@ public record ProviderResponse(
         String pendingExperience,
         List<String> pendingServices,
         String pendingPhone,
-        String pendingEmail) {
+        String pendingEmail,
+        Double averageRating,
+        long reviewCount) {
     public static ProviderResponse from(ProviderListing listing) {
+        return from(listing, null, 0);
+    }
+
+    public static ProviderResponse from(ProviderListing listing, Double averageRating, long reviewCount) {
         return new ProviderResponse(
                 listing.getId(),
                 listing.getOwner().getId(),
@@ -47,7 +52,6 @@ public record ProviderResponse(
                 listing.getEmail(),
                 listing.getStatus().name().toLowerCase(java.util.Locale.ROOT),
                 listing.getCreatedAt(),
-                listing.isDeletionRequested(),
                 listing.isChangesResubmitted(),
                 listing.getChangeRejectionReason(),
                 listing.getPendingName(),
@@ -58,7 +62,9 @@ public record ProviderResponse(
                 listing.getPendingExperience(),
                 listing.getPendingServices(),
                 listing.getPendingPhone(),
-                listing.getPendingEmail());
+                listing.getPendingEmail(),
+                averageRating,
+                reviewCount);
     }
 
     public static ProviderResponse publicFrom(ProviderListing listing) {
@@ -78,7 +84,6 @@ public record ProviderResponse(
                 response.email(),
                 response.status(),
                 response.createdAt(),
-                response.deletionRequested(),
                 false,
                 null,
                 null,
@@ -89,6 +94,16 @@ public record ProviderResponse(
                 null,
                 List.of(),
                 null,
-                null);
+                null,
+                response.averageRating(),
+                response.reviewCount());
+    }
+
+    public ProviderResponse withRatings(Double averageRating, long reviewCount) {
+        return new ProviderResponse(id, ownerId, ownerName, name, category, area, description,
+                price, experience, services, phone, email, status, createdAt, changesResubmitted,
+                changeRejectionReason, pendingName, pendingCategory, pendingArea, pendingDescription,
+                pendingPrice, pendingExperience, pendingServices, pendingPhone, pendingEmail,
+                averageRating, reviewCount);
     }
 }

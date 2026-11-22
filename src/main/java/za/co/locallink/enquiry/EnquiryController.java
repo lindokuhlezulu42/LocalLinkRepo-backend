@@ -11,10 +11,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 import za.co.locallink.account.UserAccount;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+
+record EnquiryStatusRequest(
+        @Pattern(regexp = "accepted|in_progress|completed") String status) {}
 
 @RestController
 @RequestMapping("/api")
@@ -43,5 +48,20 @@ public class EnquiryController {
             @PathVariable UUID id,
             @AuthenticationPrincipal UserAccount account) {
         enquiries.hideForProvider(id, account);
+    }
+
+    @DeleteMapping("/enquiries/mine/{id}")
+    public void hideMine(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserAccount account) {
+        enquiries.hideForResident(id, account);
+    }
+
+    @PatchMapping("/enquiries/{id}/status")
+    public EnquiryResponse changeStatus(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserAccount account,
+            @Valid @RequestBody EnquiryStatusRequest request) {
+        return enquiries.changeStatus(id, request.status(), account);
     }
 }

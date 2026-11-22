@@ -6,13 +6,16 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import za.co.locallink.account.AccountRole;
 import za.co.locallink.account.UserAccount;
 import za.co.locallink.enquiry.EnquiryRepository;
+import za.co.locallink.appointment.AppointmentSlotRepository;
+import za.co.locallink.appointment.BookingRequestRepository;
+import za.co.locallink.review.ReviewRepository;
 
 @Service
 public class ProviderService {
@@ -22,12 +25,28 @@ public class ProviderService {
 
     private final ProviderListingRepository listings;
     private final EnquiryRepository enquiries;
+    private final BookingRequestRepository bookings;
+    private final ReviewRepository reviews;
+    private final AppointmentSlotRepository slots;
 
     public ProviderService(
             ProviderListingRepository listings,
             EnquiryRepository enquiries) {
+        this(listings, enquiries, null, null, null);
+    }
+
+    @Autowired
+    public ProviderService(
+            ProviderListingRepository listings,
+            EnquiryRepository enquiries,
+            BookingRequestRepository bookings,
+            ReviewRepository reviews,
+            AppointmentSlotRepository slots) {
         this.listings = listings;
         this.enquiries = enquiries;
+        this.bookings = bookings;
+        this.reviews = reviews;
+        this.slots = slots;
     }
 
     @Transactional(readOnly = true)
@@ -37,22 +56,41 @@ public class ProviderService {
         String areaPattern = (area != null && !area.trim().isEmpty()) ? "%" + area.trim().toLowerCase(Locale.ROOT) + "%" : null;
         String queryPattern = (query != null && !query.trim().isEmpty()) ? "%" + query.trim().toLowerCase(Locale.ROOT) + "%" : null;
 
-        var result = listings.searchApproved(
+        var list = listings.searchApproved(
                         ListingStatus.APPROVED,
                         categoryLower,
                         areaPattern,
                         queryPattern)
                 .stream()
                 .map(ProviderResponse::publicFrom)
-                .toList();
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        if (reviews != null && !list.isEmpty()) {
+            java.util.Map<UUID, Object[]> summaries = new java.util.HashMap<>();
+            for (Object[] row : reviews.summarizeByProviderIds(
+                    list.stream().map(ProviderResponse::id).toList())) {
+                summaries.put((UUID) row[0], row);
+            }
+            for (int index = 0; index < list.size(); index++) {
+                var row = summaries.get(list.get(index).id());
+                if (row != null) {
+                    list.set(index, list.get(index).withRatings((Double) row[1], (Long) row[2]));
+                }
+            }
+        }
+        var result = java.util.List.<ProviderResponse>copyOf(list);
         return limit == null ? result : result.stream().limit(Math.max(1, Math.min(limit, 24))).toList();
     }
 
     @Transactional(readOnly = true)
     public ProviderResponse getPublic(UUID id) {
-        return listings.findByIdAndStatus(id, ListingStatus.APPROVED)
-                .map(ProviderResponse::publicFrom)
+        var listing = listings.findByIdAndStatus(id, ListingStatus.APPROVED)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service provider not found."));
+        var response = ProviderResponse.publicFrom(listing);
+        if (reviews != null) {
+            var average = reviews.averageRatingFor(id);
+            response = response.withRatings(average, reviews.countByProviderId(id));
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -127,12 +165,15 @@ public class ProviderService {
     }
 
     @Transactional
-    public ProviderResponse requestDeletion(UserAccount account, UUID id, boolean requested) {
+    public void deleteOwned(UserAccount account, UUID id) {
         var listing = listings.findById(id)
                 .filter(existing -> existing.getOwner().getId().equals(account.getId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found."));
-        listing.setDeletionRequested(requested);
-        return ProviderResponse.from(listings.save(listing));
+        if (bookings != null) bookings.deleteAllByProviderId(id);
+        if (reviews != null) reviews.deleteAllByProviderId(id);
+        if (slots != null) slots.deleteAllByProviderId(id);
+        enquiries.deleteAllByProviderId(id);
+        listings.delete(listing);
     }
 
     @Transactional(readOnly = true)
@@ -195,18 +236,6 @@ public class ProviderService {
         }
         listing.rejectStagedChanges(reason.trim());
         return ProviderResponse.from(listings.save(listing));
-    }
-
-    @Transactional
-    public void deleteAfterProviderRequest(UUID id) {
-        var listing = listings.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found."));
-        if (!listing.isDeletionRequested()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "The provider has not requested this listing's removal.");
-        }
-        enquiries.deleteAllByProviderId(id);
-        listings.delete(listing);
     }
 
     private static void validateCategory(String category) {

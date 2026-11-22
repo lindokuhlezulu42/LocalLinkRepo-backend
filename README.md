@@ -64,17 +64,17 @@ To use different connection details, set `DATABASE_URL`, `DATABASE_USERNAME`, an
 
 The default configuration continues to use the local H2 database unless the `postgresql` profile is activated.
 
-To bootstrap an administrator on startup, configure `LOCALLINK_ADMIN_EMAIL` and `LOCALLINK_ADMIN_PASSWORD`; the password must be at least 12 characters. For HTTPS deployments, set `SESSION_COOKIE_SECURE=true`. Do not commit credentials.
+On startup, the configured `locallink.admin.email` and `locallink.admin.password` values create or reconcile the administrator account: the account is assigned the administrator role, marked verified, and its password is set to the configured value. The password must be at least 12 characters. Changes to these values take effect after restarting the backend. For HTTPS deployments, set `SESSION_COOKIE_SECURE=true`. Do not commit production credentials.
 
 The administrator dashboard lists provider listings in every status and system-wide enquiries. It refreshes automatically while the page is visible. Providers can edit a published listing and submit proposed changes directly. The last approved version remains public while an administrator reviews the proposal. Approval publishes the update; rejection requires a reason and keeps the existing approved version public. Only administrator accounts can access the management endpoints.
 
-Administrators can mark enquiries as read and permanently delete them after review. The API prevents deletion of unread enquiries. Providers can request permanent removal of their own listings; administrators review those requests before confirming deletion. Confirming permanently deletes the listing and its related enquiries.
+Administrators can mark enquiries as read and permanently delete them after review. The API prevents deletion of unread enquiries. Providers can permanently delete their own listings from their dashboard; deleting a listing also permanently deletes its related enquiries.
 
 ### Email verification
 
 New resident and provider accounts must verify their email before signing in. The verification link expires after 10 minutes; the verification page can request a replacement link. Existing accounts are kept verified when the database schema is updated.
 
-Gmail SMTP defaults are configured in `application.properties` using `smtp.gmail.com:587` and STARTTLS. Set `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` in the environment before starting the API. Keep credentials out of tracked property files and source control.
+Gmail SMTP defaults are configured in `application.properties` using `smtp.gmail.com:587` and STARTTLS. Set `MAIL_USERNAME` and a Gmail App Password in `MAIL_PASSWORD` in the environment before starting the API. `MAIL_FROM` defaults to `MAIL_USERNAME`; set it explicitly only if your SMTP provider permits a different sender address. Keep credentials out of tracked property files and source control.
 
 To supply the App Password in PowerShell for the current terminal session:
 

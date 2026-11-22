@@ -3,7 +3,9 @@ package za.co.locallink.provider;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import za.co.locallink.account.UserAccount;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 
 @RestController
 @RequestMapping("/api/providers")
@@ -63,14 +64,11 @@ public class ProviderController {
         return providers.update(account, id, request);
     }
 
-    @PatchMapping("/{id}/deletion-request")
-    public ProviderResponse requestDeletion(
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(
             @AuthenticationPrincipal UserAccount account,
-            @PathVariable UUID id,
-            @Valid @RequestBody DeletionRequest request) {
-        return providers.requestDeletion(account, id, request.requested());
-    }
-
-    public record DeletionRequest(@NotNull Boolean requested) {
+            @PathVariable UUID id) {
+        providers.deleteOwned(account, id);
+        return ResponseEntity.noContent().build();
     }
 }
