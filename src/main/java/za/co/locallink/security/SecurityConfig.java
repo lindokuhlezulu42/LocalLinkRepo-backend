@@ -61,7 +61,19 @@ public class SecurityConfig {
             DaoAuthenticationProvider authenticationProvider,
             @org.springframework.beans.factory.annotation.Value("${locallink.frontend-origin}") String configuredOrigin) throws Exception {
 
-        var frontendOrigin = configuredOrigin.replaceAll("/+$", "");
+        // FRONTEND_ORIGIN may hold several comma-separated origins; tolerate stray spaces,
+        // trailing slashes and a missing scheme so a small typo doesn't block every request.
+        var allowedOrigins = new java.util.ArrayList<>(java.util.List.of(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174"));
+        for (var origin : configuredOrigin.split(",")) {
+            var normalized = origin.trim().replaceAll("/+$", "");
+            if (normalized.isEmpty()) continue;
+            if (!normalized.contains("://")) normalized = "https://" + normalized;
+            allowedOrigins.add(normalized);
+        }
         var csrfRepository = new HttpSessionCsrfTokenRepository();
         csrfRepository.setHeaderName("X-XSRF-TOKEN");
         var csrfHandler = new CsrfTokenRequestAttributeHandler();
@@ -72,13 +84,7 @@ public class SecurityConfig {
                         .csrfTokenRequestHandler(csrfHandler))
                 .cors(cors -> cors.configurationSource(request -> {
                     var configuration = new org.springframework.web.cors.CorsConfiguration();
-                    configuration.setAllowedOrigins(java.util.List.of(
-                        frontendOrigin,
-                        "http://localhost:5173",
-                        "http://127.0.0.1:5173",
-                        "http://localhost:5174",
-                        "http://127.0.0.1:5174"
-                    ));
+                    configuration.setAllowedOrigins(allowedOrigins);
                     configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                     configuration.setAllowedHeaders(java.util.List.of("*")); // Allow all headers for local dev
                     configuration.setAllowCredentials(true);
