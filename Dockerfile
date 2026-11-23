@@ -9,6 +9,6 @@ RUN ./mvnw -B -q package -DskipTests && cp target/*.jar app.jar
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/app.jar app.jar
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
+ENV JAVA_OPTS="-Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1"
 EXPOSE 8080
 CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
