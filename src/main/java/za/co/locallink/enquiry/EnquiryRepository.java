@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.Modifying;
 public interface EnquiryRepository extends JpaRepository<Enquiry, UUID> {
     List<Enquiry> findAllByOrderByCreatedAtDesc();
 
+    List<Enquiry> findAllByHiddenForAdminFalseOrderByCreatedAtDesc();
+
     @Query("""
             select enquiry from Enquiry enquiry
             where (enquiry.resident.id = :accountId and enquiry.hiddenForResident = false)

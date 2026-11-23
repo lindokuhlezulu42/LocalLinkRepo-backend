@@ -53,6 +53,9 @@ public class Enquiry {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean readByAdmin;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean hiddenForAdmin;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -92,9 +95,11 @@ public class Enquiry {
     public boolean isHiddenForProvider() { return hiddenForProvider; }
     public boolean isHiddenForResident() { return hiddenForResident; }
     public boolean isReadByAdmin() { return readByAdmin; }
+    public boolean isHiddenForAdmin() { return hiddenForAdmin; }
     public Instant getCreatedAt() { return createdAt; }
     public void setStatus(String status) { this.status = status; }
     public void setHiddenForProvider(boolean hiddenForProvider) { this.hiddenForProvider = hiddenForProvider; }
     public void setHiddenForResident(boolean hiddenForResident) { this.hiddenForResident = hiddenForResident; }
     public void setReadByAdmin(boolean readByAdmin) { this.readByAdmin = readByAdmin; }
+    public void setHiddenForAdmin(boolean hiddenForAdmin) { this.hiddenForAdmin = hiddenForAdmin; }
 }

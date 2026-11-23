@@ -63,9 +63,17 @@ public class EnquiryService {
 
     @Transactional(readOnly = true)
     public List<EnquiryResponse> findAllForAdmin() {
-        return enquiries.findAllByOrderByCreatedAtDesc().stream()
+        return enquiries.findAllByHiddenForAdminFalseOrderByCreatedAtDesc().stream()
                 .map(EnquiryResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public void hideForAdmin(UUID enquiryId) {
+        var enquiry = enquiries.findById(enquiryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enquiry not found."));
+        enquiry.setHiddenForAdmin(true);
+        enquiries.save(enquiry);
     }
 
     @Transactional

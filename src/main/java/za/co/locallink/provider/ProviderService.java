@@ -197,9 +197,9 @@ public class ProviderService {
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a valid listing status.");
         }
-        if (newStatus != ListingStatus.APPROVED) {
+        if (newStatus != ListingStatus.APPROVED && newStatus != ListingStatus.REJECTED) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Administrators can only approve listings. Providers request their own changes.");
+                    HttpStatus.BAD_REQUEST, "Administrators can only approve or reject listings.");
         }
         var listing = listings.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found."));
@@ -208,6 +208,26 @@ public class ProviderService {
                     HttpStatus.CONFLICT, "Review the proposed changes using the changes approval action.");
         }
         listing.setStatus(newStatus);
+        return ProviderResponse.from(listings.save(listing));
+    }
+
+    @Transactional
+    public ProviderResponse rejectListing(UUID id, String reason) {
+        var listing = listings.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found."));
+        if (listing.getStatus() != ListingStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Only pending listings can be rejected.");
+        }
+        if (listing.isChangesResubmitted()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Review the proposed changes using the changes rejection action.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide a reason for rejecting this listing.");
+        }
+        listing.setStatus(ListingStatus.REJECTED);
+        listing.requestChanges(reason.trim());
         return ProviderResponse.from(listings.save(listing));
     }
 

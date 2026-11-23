@@ -40,6 +40,13 @@ public class AdminProviderController {
         return providers.updateStatus(id, request.status());
     }
 
+    @PatchMapping("/{id}/reject")
+    public ProviderResponse rejectListing(
+            @PathVariable UUID id,
+            @Valid @RequestBody ChangeRejectionRequest request) {
+        return providers.rejectListing(id, request.reason());
+    }
+
     @PatchMapping("/{id}/approve-changes")
     public ProviderResponse approveResubmittedChanges(@PathVariable UUID id) {
         return providers.approveResubmittedChanges(id);

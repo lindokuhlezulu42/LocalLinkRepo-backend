@@ -42,6 +42,12 @@ public class AdminEnquiryController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/hide")
+    public ResponseEntity<Void> hide(@PathVariable UUID id) {
+        enquiries.hideForAdmin(id);
+        return ResponseEntity.noContent().build();
+    }
+
     public record ReadRequest(@NotNull Boolean read) {
     }
 }

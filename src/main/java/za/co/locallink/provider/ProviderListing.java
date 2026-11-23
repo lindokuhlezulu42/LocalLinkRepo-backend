@@ -226,6 +226,10 @@ public class ProviderListing {
         changeRejectionReason = reason;
     }
 
+    public void requestChanges(String reason) {
+        changeRejectionReason = reason;
+    }
+
     public void updateDetails(
             String name,
             String category,
