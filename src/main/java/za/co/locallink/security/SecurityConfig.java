@@ -58,8 +58,10 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            DaoAuthenticationProvider authenticationProvider) throws Exception {
+            DaoAuthenticationProvider authenticationProvider,
+            @org.springframework.beans.factory.annotation.Value("${locallink.frontend-origin}") String configuredOrigin) throws Exception {
 
+        var frontendOrigin = configuredOrigin.replaceAll("/+$", "");
         var csrfRepository = new HttpSessionCsrfTokenRepository();
         csrfRepository.setHeaderName("X-XSRF-TOKEN");
         var csrfHandler = new CsrfTokenRequestAttributeHandler();
@@ -70,8 +72,8 @@ public class SecurityConfig {
                         .csrfTokenRequestHandler(csrfHandler))
                 .cors(cors -> cors.configurationSource(request -> {
                     var configuration = new org.springframework.web.cors.CorsConfiguration();
-                    // ✅ Allow multiple common Vite/React development origins to prevent 403 errors
                     configuration.setAllowedOrigins(java.util.List.of(
+                        frontendOrigin,
                         "http://localhost:5173",
                         "http://127.0.0.1:5173",
                         "http://localhost:5174",

@@ -1,3 +1,13 @@
+---
+title: LocalLink API
+emoji: 🏠
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8080
+pinned: false
+---
+
 # LocalLink backend
 
 Spring Boot API for LocalLink. It provides account registration and login, provider listings, enquiries, and administrator moderation.
