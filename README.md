@@ -108,4 +108,4 @@ Other SMTP settings can be overridden with environment variables:
 
 The default mail host is `localhost` on port `25`; configure a reachable SMTP server to deliver messages. If sending fails, registration returns an error rather than creating an unusable account. Never commit SMTP credentials.
 
-Password recovery email delivery is not configured.
+Password recovery: `POST /api/auth/forgot-password` emails a one-time link (30 minutes) to `/reset-password?token=…`; `POST /api/auth/reset-password` sets the new password. The admin account is excluded; change it with `LOCALLINK_ADMIN_PASSWORD`.

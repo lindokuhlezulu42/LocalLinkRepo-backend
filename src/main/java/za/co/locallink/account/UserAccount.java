@@ -68,6 +68,7 @@ public class UserAccount implements UserDetails {
     public Instant getVerificationSentAt() { return verificationSentAt; }
     public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
     public void setVerificationSentAt(Instant verificationSentAt) { this.verificationSentAt = verificationSentAt; }
+    public void changePassword(String passwordHash) { this.passwordHash = passwordHash; }
     public void configureAsAdmin(String passwordHash) {
         this.passwordHash = passwordHash;
         this.role = AccountRole.ADMIN;

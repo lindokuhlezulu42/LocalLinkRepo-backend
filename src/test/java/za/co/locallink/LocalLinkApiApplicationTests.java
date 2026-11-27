@@ -41,6 +41,7 @@ import za.co.locallink.enquiry.EnquiryService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -340,6 +341,70 @@ class LocalLinkApiApplicationTests {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{"email":"%s","password":"secure-pass-123"}
+								""".formatted(email)))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void forgottenPasswordsCanBeResetOnceThroughTheEmailedLink() throws Exception {
+		var email = "reset-" + UUID.randomUUID() + "@example.com";
+		accounts.save(new UserAccount("Reset Resident", email,
+				passwordEncoder.encode("old-pass-123"), AccountRole.RESIDENT));
+		when(mailSender.createMimeMessage()).thenReturn(
+				new MimeMessage(Session.getInstance(new Properties())));
+
+		// Unknown and admin addresses get the same answer but no email.
+		for (var address : new String[] {"nobody-" + UUID.randomUUID() + "@example.com", "admin@test.local"}) {
+			mockMvc.perform(post("/api/auth/forgot-password")
+							.with(csrf())
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{"email":"%s"}
+									""".formatted(address)))
+					.andExpect(status().isOk());
+		}
+		verify(mailSender, never()).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
+
+		mockMvc.perform(post("/api/auth/forgot-password")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"%s"}
+								""".formatted(email.toUpperCase())))
+				.andExpect(status().isOk());
+
+		var message = ArgumentCaptor.forClass(MimeMessage.class);
+		verify(mailSender).send(message.capture());
+		var text = extractMessageText(message.getValue().getContent());
+		var matcher = Pattern.compile("/reset-password\\?token=([A-Za-z0-9_-]+)").matcher(text);
+		assertTrue(matcher.find());
+		var resetBody = """
+				{"token":"%s","password":"new-pass-456"}
+				""".formatted(matcher.group(1));
+
+		mockMvc.perform(post("/api/auth/reset-password")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(resetBody))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/auth/reset-password")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(resetBody))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(post("/api/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"%s","password":"old-pass-123"}
+								""".formatted(email)))
+				.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/login")
+						.with(csrf())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"email":"%s","password":"new-pass-456"}
 								""".formatted(email)))
 				.andExpect(status().isOk());
 	}

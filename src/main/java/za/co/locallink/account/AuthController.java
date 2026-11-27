@@ -29,6 +29,7 @@ import jakarta.validation.Valid;
 public class AuthController {
     private final AccountService accounts;
     private final EmailVerificationService emailVerification;
+    private final PasswordResetService passwordReset;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
@@ -36,11 +37,13 @@ public class AuthController {
     public AuthController(
             AccountService accounts,
             EmailVerificationService emailVerification,
+            PasswordResetService passwordReset,
             AuthenticationManager authenticationManager,
             SecurityContextRepository securityContextRepository,
             SessionAuthenticationStrategy sessionAuthenticationStrategy) {
         this.accounts = accounts;
         this.emailVerification = emailVerification;
+        this.passwordReset = passwordReset;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
@@ -75,6 +78,18 @@ public class AuthController {
     public Map<String, String> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
         emailVerification.resend(request.email());
         return Map.of("message", "If the address belongs to an unverified account, check your inbox shortly.");
+    }
+
+    @PostMapping("/forgot-password")
+    public Map<String, String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordReset.requestReset(request.email());
+        return Map.of("message", "If an account uses that email, a password reset link is on its way. Check your inbox and spam folder.");
+    }
+
+    @PostMapping("/reset-password")
+    public Map<String, String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordReset.resetPassword(request.token(), request.password());
+        return Map.of("message", "Your password has been changed. You can now sign in with your new password.");
     }
 
     @PostMapping("/login")

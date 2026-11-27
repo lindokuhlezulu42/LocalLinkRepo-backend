@@ -93,7 +93,8 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/csrf", "/api/auth/me", "/api/auth/register", "/api/auth/login",
-                                "/api/auth/verify-email", "/api/auth/resend-verification", "/api/health").permitAll()
+                                "/api/auth/verify-email", "/api/auth/resend-verification", "/api/auth/forgot-password",
+                                "/api/auth/reset-password", "/api/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/providers/mine").authenticated()
                         .requestMatchers(new AntPathRequestMatcher("/api/providers", HttpMethod.GET.name())).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/providers/**").permitAll()

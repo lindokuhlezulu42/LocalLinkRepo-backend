@@ -133,7 +133,7 @@ public class EmailVerificationService {
         }
     }
 
-    private static String hash(String token) {
+    static String hash(String token) {
         try {
             var digest = MessageDigest.getInstance("SHA-256")
                     .digest(token.getBytes(StandardCharsets.UTF_8));
